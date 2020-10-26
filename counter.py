@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import deque
 import tkinter as tk
 
 class CounterFrame:
@@ -86,6 +86,10 @@ class RatioCounter:
         self.num_options = num_options
         self.counter_frames = []
 
+        # History of all inputs, used for building streaks and calculating ratios
+        # Limiting to 1000 for now, probably add some zeroes to that later
+        self.input_history = deque(maxlen=1000)
+
         # Reset button
         self.btn_reset = tk.Button(master=window, text='Reset Counters', command=self.reset)
 
@@ -97,7 +101,6 @@ class RatioCounter:
         # Current streak display vars
         self.lbl_curr_streak = tk.Label(master=window, textvariable=self.curr_streak_text)
 
-        # TODO: Keep a list of the last x events and use that to derive streaks/dependent ratios
         self.update_labels()
 
         for idx in range(num_options):
@@ -110,6 +113,13 @@ class RatioCounter:
         self.current_streak_idx = 0
 
         self.update_labels()
+
+    def increment_counter(self, idx):
+        '''
+        Record an event in our input_history and update any dependent ratios/max streak/etc
+        '''
+        # TODO: take inputs from the CounterFrames and store whatever we need to track them. Maybe just an idx??
+
 
     def update_current_streak(self, name):
         '''
