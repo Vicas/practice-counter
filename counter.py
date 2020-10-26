@@ -6,6 +6,10 @@ class CounterFrame:
         # index within the RatioCounter
         self.idx = idx
         self.name = tk.StringVar()
+        self.success = tk.BooleanVar()
+
+        # Init Variable entries
+        self.success.set(False)
 
         # Data counters
         self.counter = 0
@@ -15,17 +19,27 @@ class CounterFrame:
         self.rc = rc
 
         # TK window stuff
-        self.frm_box = tk.Frame(master=window, borderwidth=5)
+        self.frm_box = tk.Frame(window, borderwidth=5)
         self.ent_name = tk.Entry(
-                master=self.frm_box,
+                self.frm_box,
+                width=10,
                 textvariable=self.name)
-        self.btn_increment = tk.Button(master=self.frm_box, textvariable=self.name)
-        self.lbl_total = tk.Label(master=self.frm_box, text=f'Total: {self.counter}')
-        self.lbl_max_streak = tk.Label(master=self.frm_box, text=f'Max Streak: {self.max_streak}')
+        self.cb_success = tk.Checkbutton(
+                self.frm_box,
+                text='Success',
+                variable=self.success,
+                onvalue=True,
+                offvalue=False,
+                command=self.update_success)
+        self.btn_increment = tk.Button(self.frm_box, textvariable=self.name)
+        self.lbl_total = tk.Label(self.frm_box, text=f'Total: {self.counter}')
+        self.lbl_max_streak = tk.Label(self.frm_box, text=f'Max Streak: {self.max_streak}')
 
         # Bind the button to inc/dec functions
         self.btn_increment.bind("<Button-1>", self.pressed)
         self.btn_increment.bind("<Button-3>", self.pressed)
+
+        self.update_success()
 
     def increment(self):
         self.counter += 1
@@ -49,15 +63,20 @@ class CounterFrame:
 
         self.update_labels()
 
+    def update_success(self):
+        self.btn_increment['bg'] = '#03c2fc' if self.success.get() else '#ff525a'
+
+
     def update_labels(self):
         self.lbl_total["text"] = f'Total: {self.counter}'
         self.lbl_max_streak["text"] = f'Max Streak: {self.max_streak}'
 
     def pack(self):
-        self.ent_name.pack()
-        self.lbl_total.pack()
-        self.lbl_max_streak.pack()
-        self.btn_increment.pack()
+        self.ent_name.grid(row=0, column=0)
+        self.cb_success.grid(row=0, column=1)
+        self.lbl_total.grid(row=1, column=0)
+        self.lbl_max_streak.grid(row=1, column=1)
+        self.btn_increment.grid(row=2, column=0, columnspan=2)
         self.frm_box.pack()
 
 
@@ -127,6 +146,13 @@ top.title("Practice counter")
 
 # Inititalize the RatioCounter with defaults
 rc = RatioCounter(top)
+
+# Init the counter labels
+rc.counter_frames[0].success.set(True)
+rc.counter_frames[0].name.set("Success!")
+rc.counter_frames[0].update_success()
+rc.counter_frames[1].name.set("Failure!")
+
 rc.pack()
 
 top.mainloop()
