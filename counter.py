@@ -1,11 +1,11 @@
-from collections import deque
+from collections import Counter, deque
 import tkinter as tk
 
 class CounterFrame:
-    def __init__(self, idx, window, rc):
-        # index within the RatioCounter
-        self.idx = idx
+    def __init__(self, name, rc):
+        self.window = rc.window
         self.name = tk.StringVar()
+        self.name.set(name)
         self.success = tk.BooleanVar()
 
         # Init Variable entries
@@ -19,7 +19,7 @@ class CounterFrame:
         self.rc = rc
 
         # TK window stuff
-        self.frm_box = tk.Frame(window, borderwidth=5)
+        self.frm_box = tk.Frame(self.window, borderwidth=5)
         self.ent_name = tk.Entry(
                 self.frm_box,
                 width=10,
@@ -44,12 +44,12 @@ class CounterFrame:
     def increment(self):
         self.counter += 1
 
-        # Tell the RatioCounter to update its current streak
-        rc.update_current_streak(self.name.get())
-
         # If this is the max streak we've seen for counter, update it
         if self.max_streak < self.rc.current_streak_value:
             self.max_streak = self.rc.current_streak_value
+
+        # Tell the RatioCounter about this update
+        self.rc.increment_counter(self.name.get())
 
     def decrement(self):
         if self.counter > 0:
@@ -63,9 +63,14 @@ class CounterFrame:
 
         self.update_labels()
 
+    def reset(self):
+        self.counter = 0
+        self.max_streak = 0
+        self.update_labels()
+
+    # TKinter updates/packing
     def update_success(self):
         self.btn_increment['bg'] = '#03c2fc' if self.success.get() else '#ff525a'
-
 
     def update_labels(self):
         self.lbl_total["text"] = f'Total: {self.counter}'
@@ -77,14 +82,66 @@ class CounterFrame:
         self.lbl_total.grid(row=1, column=0)
         self.lbl_max_streak.grid(row=1, column=1)
         self.btn_increment.grid(row=2, column=0, columnspan=2)
-        self.frm_box.pack()
 
+class RatioFrame:
+    '''
+    Frame class of success ratios based on the last <x> inputs
+    '''
+    def __init__(self, window, lookback_counts):
+        self.window = window
+        self.lookback_counts = lookback_counts
+        self.lookback_counts.sort()
+        self.frm_box = tk.Frame(self.window, borderwidth=5)
+
+        self.lbl_ratios = tk.Label(self.frm_box, text="Success Ratios")
+        self.ratio_list = []
+        for count in lookback_counts:
+            self.ratio_list.append(tk.Label(self.frm_box, text=f"Last {count}: 0%"))
+
+    def update_ratios(self, input_history, success_dict):
+        '''
+        Given an update history and a list of success/failures, generate a success ratio for each
+        count in the lookback_counts
+        '''
+        count_idx = 0
+        lookback_idx = 0
+        percent = 0
+        success_counter = Counter()
+        for name in reversed(input_history):
+            # Update our success/failure counts
+            success_counter[success_dict[name]] += 1
+            percent = (success_counter[True] / sum(success_counter.values())) * 100
+
+            # If we've hit a count breakpoint, compute the success/failure ratio
+            # based ont he current counters
+            if count_idx == self.lookback_counts[lookback_idx]:
+                self.ratio_list[lookback_idx]['text'] = \
+                    f'Last {self.lookback_counts[lookback_idx]}: {percent:.3g}%'
+                lookback_idx += 1
+
+                # If we've covered all our ratios, stop scanning the list
+                if lookback_idx >= len(self.lookback_counts):
+                    break
+
+            count_idx += 1
+
+        # If we don't have enough actions for all lookback_counts, update the rest of them
+        # with what we have now
+        while lookback_idx < len(self.lookback_counts):
+            self.ratio_list[lookback_idx]['text'] = \
+                f'Last {self.lookback_counts[lookback_idx]}: {percent:.3g}%'
+            lookback_idx += 1
+
+    def pack(self):
+        self.lbl_ratios.pack()
+        for label in self.ratio_list:
+            label.pack()
 
 class RatioCounter:
-    def __init__(self, window, num_options=2):
+    def __init__(self, window, name_list):
         self.window = window
-        self.num_options = num_options
-        self.counter_frames = []
+        self.counter_frames = {}
+        self.ratio_frame = RatioFrame(window, [10, 50, 100])
 
         # History of all inputs, used for building streaks and calculating ratios
         # Limiting to 1000 for now, probably add some zeroes to that later
@@ -99,27 +156,38 @@ class RatioCounter:
         self.curr_streak_text = tk.StringVar()
 
         # Current streak display vars
-        self.lbl_curr_streak = tk.Label(master=window, textvariable=self.curr_streak_text)
+        self.lbl_curr_streak = tk.Label(master=window, textvariable=self.curr_streak_text, borderwidth=2)
 
         self.update_labels()
 
-        for idx in range(num_options):
-            self.counter_frames.append(CounterFrame(idx, self.window, self))
+        for name in name_list:
+            self.counter_frames[name] = CounterFrame(name, self)
     
     def reset(self):
-        self.counters.clear()
-        self.max_streak = [0]*self.num_options
+        # TODO: dedupe this reset code from the constructor code
+        for cf in self.counter_frames.values():
+            cf.reset()
         self.current_streak_value = 0
-        self.current_streak_idx = 0
+        self.current_streak_name = "None"
+        self.input_history = deque(maxlen=1000)
 
         self.update_labels()
 
-    def increment_counter(self, idx):
+    def increment_counter(self, name):
         '''
         Record an event in our input_history and update any dependent ratios/max streak/etc
         '''
-        # TODO: take inputs from the CounterFrames and store whatever we need to track them. Maybe just an idx??
+        self.input_history.append(name)
+        self.ratio_frame.update_ratios(
+                self.input_history,
+                {name: cf.success.get() for name, cf in self.counter_frames.items()})
+        self.update_current_streak(name)
 
+    def rename_counter(self, name):
+        '''
+        TODO: rename the counter in its dict and the input history
+        '''
+        pass
 
     def update_current_streak(self, name):
         '''
@@ -146,22 +214,25 @@ class RatioCounter:
                 STRK_TXT_TEMPLATE.format(name=self.current_streak_name, val=self.current_streak_value))
 
     def pack(self):
-        self.lbl_curr_streak.pack()
-        for cf in self.counter_frames:
+        self.lbl_curr_streak.grid(row=0, column=0, columnspan=2)
+        cf_row_idx = 1
+        for cf in self.counter_frames.values():
             cf.pack()
-        self.btn_reset.pack()
+            cf.frm_box.grid(row=cf_row_idx, column=0)
+            cf_row_idx += 1
+        self.ratio_frame.pack()
+        self.ratio_frame.frm_box.grid(row=int(cf_row_idx/2), column=1, rowspan=2)
+        self.btn_reset.grid(row=cf_row_idx, column=0, columnspan=2)
 
 top = tk.Tk()
 top.title("Practice counter")
 
 # Inititalize the RatioCounter with defaults
-rc = RatioCounter(top)
+rc = RatioCounter(top, ["Success!", "Failure!"])
 
 # Init the counter labels
-rc.counter_frames[0].success.set(True)
-rc.counter_frames[0].name.set("Success!")
-rc.counter_frames[0].update_success()
-rc.counter_frames[1].name.set("Failure!")
+rc.counter_frames["Success!"].success.set(True)
+rc.counter_frames["Success!"].update_success()
 
 rc.pack()
 
