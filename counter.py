@@ -44,12 +44,13 @@ class CounterFrame:
     def increment(self):
         self.counter += 1
 
+        # Tell the RatioCounter about this update
+        self.rc.increment_counter(self.name.get())
+
         # If this is the max streak we've seen for counter, update it
         if self.max_streak < self.rc.current_streak_value:
             self.max_streak = self.rc.current_streak_value
 
-        # Tell the RatioCounter about this update
-        self.rc.increment_counter(self.name.get())
 
     def decrement(self):
         if self.counter > 0:
