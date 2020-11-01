@@ -6,6 +6,8 @@ class CounterFrame:
         self.window = rc.window
         self.name = tk.StringVar()
         self.name.set(name)
+        self.name.trace_add('write', self.rename_counter)
+        self.old_name = self.name.get()
         self.success = tk.BooleanVar()
 
         # Init Variable entries
@@ -63,6 +65,12 @@ class CounterFrame:
             self.decrement()
 
         self.update_labels()
+
+    def rename_counter(self, var, idx, mode):
+        # Tell the RatioCounter our new name, and then set it as our old name for
+        # when we change names again
+        self.rc.rename_counter(self.old_name, self.name.get())
+        self.old_name = self.name.get()
 
     def reset(self):
         self.counter = 0
@@ -141,7 +149,8 @@ class RatioFrame:
 class RatioCounter:
     def __init__(self, window, name_list):
         self.window = window
-        self.counter_frames = {}
+        self.counter_frames = [CounterFrame(name, self) for name in name_list]
+        self.counter_names = {name: idx for idx, name in enumerate(name_list)}
         self.ratio_frame = RatioFrame(window, [10, 50, 100])
 
         # History of all inputs, used for building streaks and calculating ratios
@@ -161,16 +170,15 @@ class RatioCounter:
 
         self.update_labels()
 
-        for name in name_list:
-            self.counter_frames[name] = CounterFrame(name, self)
-    
     def reset(self):
         # TODO: dedupe this reset code from the constructor code
-        for cf in self.counter_frames.values():
+        for cf in self.counter_frames:
             cf.reset()
         self.current_streak_value = 0
         self.current_streak_name = "None"
         self.input_history = deque(maxlen=1000)
+
+        self.ratio_frame.update_ratios(self.input_history, self.get_counter_success_dict())
 
         self.update_labels()
 
@@ -178,17 +186,21 @@ class RatioCounter:
         '''
         Record an event in our input_history and update any dependent ratios/max streak/etc
         '''
-        self.input_history.append(name)
-        self.ratio_frame.update_ratios(
-                self.input_history,
-                {name: cf.success.get() for name, cf in self.counter_frames.items()})
+        self.input_history.append(self.counter_names[name])
+        self.ratio_frame.update_ratios(self.input_history, self.get_counter_success_dict())
         self.update_current_streak(name)
 
-    def rename_counter(self, name):
+    def rename_counter(self, old_name, new_name):
         '''
-        TODO: rename the counter in its dict and the input history
+        Rename a given counter, updating everything in its update history
         '''
-        pass
+        # Rename the counter in counter_names
+        self.counter_names[new_name] = self.counter_names.pop(old_name)
+
+        if old_name == self.current_streak_name:
+            self.current_streak_name = new_name
+
+        self.update_labels()
 
     def update_current_streak(self, name):
         '''
@@ -202,6 +214,13 @@ class RatioCounter:
             self.current_streak_name = name
 
         self.update_labels()
+
+    def get_counter_success_dict(self):
+        '''
+        Return a dict where keys are counter names and values are true/fale depending on if this
+        counter is a success or not
+        '''
+        return {idx: cf.success.get() for idx, cf in enumerate(self.counter_frames)}
 
     def get_success_percentage(success_idxs):
         '''
@@ -217,7 +236,7 @@ class RatioCounter:
     def pack(self):
         self.lbl_curr_streak.grid(row=0, column=0, columnspan=2)
         cf_row_idx = 1
-        for cf in self.counter_frames.values():
+        for cf in self.counter_frames:
             cf.pack()
             cf.frm_box.grid(row=cf_row_idx, column=0)
             cf_row_idx += 1
@@ -232,8 +251,8 @@ top.title("Practice counter")
 rc = RatioCounter(top, ["Success!", "Failure!"])
 
 # Init the counter labels
-rc.counter_frames["Success!"].success.set(True)
-rc.counter_frames["Success!"].update_success()
+rc.counter_frames[0].success.set(True)
+rc.counter_frames[0].update_success()
 
 rc.pack()
 
