@@ -1,6 +1,8 @@
 from collections import Counter, deque
 import tkinter as tk
 
+import keyboard
+
 class CounterFrame:
     def __init__(self, name, rc):
         self.window = rc.window
@@ -57,6 +59,7 @@ class CounterFrame:
     def decrement(self):
         if self.counter > 0:
             self.counter -= 1
+            self.rc.decrement_counter(self.name.get())
 
     def pressed(self, button):
         if button.num == 1:
@@ -116,10 +119,12 @@ class RatioFrame:
         lookback_idx = 0
         percent = 0
         success_counter = Counter()
-        for name in reversed(input_history):
+        for name in input_history:
             # Update our success/failure counts
             success_counter[success_dict[name]] += 1
             percent = (success_counter[True] / sum(success_counter.values())) * 100
+
+            count_idx += 1
 
             # If we've hit a count breakpoint, compute the success/failure ratio
             # based ont he current counters
@@ -131,8 +136,6 @@ class RatioFrame:
                 # If we've covered all our ratios, stop scanning the list
                 if lookback_idx >= len(self.lookback_counts):
                     break
-
-            count_idx += 1
 
         # If we don't have enough actions for all lookback_counts, update the rest of them
         # with what we have now
@@ -151,6 +154,7 @@ class RatioCounter:
         self.window = window
         self.counter_frames = [CounterFrame(name, self) for name in name_list]
         self.counter_names = {name: idx for idx, name in enumerate(name_list)}
+        self.counter_hotkeys = {str(idx+1): name for idx, name in enumerate(name_list)}
         self.ratio_frame = RatioFrame(window, [10, 50, 100])
 
         # History of all inputs, used for building streaks and calculating ratios
@@ -186,9 +190,23 @@ class RatioCounter:
         '''
         Record an event in our input_history and update any dependent ratios/max streak/etc
         '''
-        self.input_history.append(self.counter_names[name])
+        self.input_history.appendleft(self.counter_names[name])
         self.ratio_frame.update_ratios(self.input_history, self.get_counter_success_dict())
         self.update_current_streak(name)
+
+    def decrement_counter(self, name):
+        '''
+        Remove the most recent instance of a given event and update counters
+        '''
+        try:
+            self.input_history.remove(self.counter_names[name])
+        except:
+            # ignore not found errors
+            print(f'value not found! {self.counter_names[name]}')
+
+        # update the ratios but don't bother with the current streak, i don't wanna deal with side cases, lol
+        self.ratio_frame.update_ratios(self.input_history, self.get_counter_success_dict())
+
 
     def rename_counter(self, old_name, new_name):
         '''
@@ -214,6 +232,16 @@ class RatioCounter:
             self.current_streak_name = name
 
         self.update_labels()
+
+    def hotkey_released(self, keyboard_event):
+        '''
+        Compare the input to our list of counter_hotkeys, and if there's a match, increment that counter
+        '''
+        if keyboard_event.name in self.counter_hotkeys:
+            # Spoof a tkinter event to simulate a button press, I'm sure this won't bite me in the butt later
+            fake_event = tk.Event()
+            fake_event.num = 1
+            self.counter_frames[self.counter_names[self.counter_hotkeys[keyboard_event.name]]].pressed(fake_event)
 
     def get_counter_success_dict(self):
         '''
@@ -255,5 +283,7 @@ rc.counter_frames[0].success.set(True)
 rc.counter_frames[0].update_success()
 
 rc.pack()
+
+keyboard.on_release(rc.hotkey_released)
 
 top.mainloop()
