@@ -154,7 +154,7 @@ class RatioCounter:
         self.window = window
         self.counter_frames = [CounterFrame(name, self) for name in name_list]
         self.counter_names = {name: idx for idx, name in enumerate(name_list)}
-        self.counter_hotkeys = {str(idx): name for idx, name in enumerate(name_list)}
+        self.counter_hotkeys = {str(idx+1): name for idx, name in enumerate(name_list)}
         self.ratio_frame = RatioFrame(window, [10, 50, 100])
 
         # History of all inputs, used for building streaks and calculating ratios
@@ -237,10 +237,11 @@ class RatioCounter:
         '''
         Compare the input to our list of counter_hotkeys, and if there's a match, increment that counter
         '''
-        # TODO TOMORROW: instead of increment, call pressed by spoofing a button event (i guess??)
-        print(f'Key pressed! {keyboard_event}')
         if keyboard_event.name in self.counter_hotkeys:
-            self.counter_frames[self.counter_names[self.counter_hotkeys[keyboard_event.name]]].increment()
+            # Spoof a tkinter event to simulate a button press, I'm sure this won't bite me in the butt later
+            fake_event = tk.Event()
+            fake_event.num = 1
+            self.counter_frames[self.counter_names[self.counter_hotkeys[keyboard_event.name]]].pressed(fake_event)
 
     def get_counter_success_dict(self):
         '''
