@@ -14,11 +14,13 @@ def create_default_counter_config():
     config['BUTTON1'] = {
         'label': 'Success!',
         'hotkey': 1,
-        'success': True,}
+        'success': True,
+        'color': '#03c2fc'}
     config['BUTTON2'] = {
         'label': 'Failure!',
         'hotkey': 2,
-        'success': False,}
+        'success': False,
+        'color': '#ff525a'}
 
     with open(CONFIG_PATH, 'w') as configfile:
         config.write(configfile)

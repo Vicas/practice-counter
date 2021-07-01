@@ -30,22 +30,13 @@ class CounterFrame:
                 self.frm_box,
                 width=10,
                 textvariable=self.name)
-        self.cb_success = tk.Checkbutton(
-                self.frm_box,
-                text='Success',
-                variable=self.success,
-                onvalue=True,
-                offvalue=False,
-                command=self.update_success)
-        self.btn_increment = tk.Button(self.frm_box, textvariable=self.name)
+        self.btn_increment = tk.Button(self.frm_box, textvariable=self.name, bg=config['color'])
         self.lbl_total = tk.Label(self.frm_box, text=f'Total: {self.counter}')
         self.lbl_max_streak = tk.Label(self.frm_box, text=f'Max Streak: {self.max_streak}')
 
         # Bind the button to inc/dec functions
         self.btn_increment.bind("<Button-1>", self.pressed)
         self.btn_increment.bind("<Button-3>", self.pressed)
-
-        self.update_success()
 
     def increment(self):
         self.counter += 1
@@ -82,17 +73,12 @@ class CounterFrame:
         self.max_streak = 0
         self.update_labels()
 
-    # TKinter updates/packing
-    def update_success(self):
-        self.btn_increment['bg'] = '#03c2fc' if self.success.get() else '#ff525a'
-
     def update_labels(self):
         self.lbl_total["text"] = f'Total: {self.counter}'
         self.lbl_max_streak["text"] = f'Max Streak: {self.max_streak}'
 
     def pack(self):
-        self.ent_name.grid(row=0, column=0)
-        self.cb_success.grid(row=0, column=1)
+        self.ent_name.grid(row=0, column=0, columnspan=2)
         self.lbl_total.grid(row=1, column=0)
         self.lbl_max_streak.grid(row=1, column=1)
         self.btn_increment.grid(row=2, column=0, columnspan=2)
