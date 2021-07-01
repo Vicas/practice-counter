@@ -3,17 +3,19 @@ import tkinter as tk
 
 import keyboard
 
+from ini_defaults import get_config_file_or_default
+
 class CounterFrame:
-    def __init__(self, name, rc):
+    def __init__(self, config, rc):
         self.window = rc.window
         self.name = tk.StringVar()
-        self.name.set(name)
+        self.name.set(config['label'])
         self.name.trace_add('write', self.rename_counter)
         self.old_name = self.name.get()
         self.success = tk.BooleanVar()
 
         # Init Variable entries
-        self.success.set(False)
+        self.success.set(config.getboolean('success'))
 
         # Data counters
         self.counter = 0
@@ -150,11 +152,14 @@ class RatioFrame:
             label.pack()
 
 class RatioCounter:
-    def __init__(self, window, name_list):
+    def __init__(self, window, config):
         self.window = window
-        self.counter_frames = [CounterFrame(name, self) for name in name_list]
-        self.counter_names = {name: idx for idx, name in enumerate(name_list)}
-        self.counter_hotkeys = {str(idx+1): name for idx, name in enumerate(name_list)}
+        
+        # Create the buttons and all surrounding features
+        button_names = config['SETTINGS']['buttons'].split(', ')
+        self.counter_frames = [CounterFrame(config[button], self) for button in button_names]
+        self.counter_names = {config[button]['label']: idx for idx, button in enumerate(button_names)}
+        self.counter_hotkeys = {config[button]['hotkey']: idx for idx, button in enumerate(button_names)}
         self.ratio_frame = RatioFrame(window, [10, 50, 100])
 
         # History of all inputs, used for building streaks and calculating ratios
@@ -241,7 +246,7 @@ class RatioCounter:
             # Spoof a tkinter event to simulate a button press, I'm sure this won't bite me in the butt later
             fake_event = tk.Event()
             fake_event.num = 1
-            self.counter_frames[self.counter_names[self.counter_hotkeys[keyboard_event.name]]].pressed(fake_event)
+            self.counter_frames[self.counter_hotkeys[keyboard_event.name]].pressed(fake_event)
 
     def get_counter_success_dict(self):
         '''
@@ -272,15 +277,14 @@ class RatioCounter:
         self.ratio_frame.frm_box.grid(row=int(cf_row_idx/2), column=1, rowspan=2)
         self.btn_reset.grid(row=cf_row_idx, column=0, columnspan=2)
 
+
+loaded_config = get_config_file_or_default()
+
 top = tk.Tk()
-top.title("Practice counter")
+top.title(loaded_config['SETTINGS']['counter_name'])
 
-# Inititalize the RatioCounter with defaults
-rc = RatioCounter(top, ["Success!", "Failure!"])
-
-# Init the counter labels
-rc.counter_frames[0].success.set(True)
-rc.counter_frames[0].update_success()
+# Inititalize the RatioCounter with the loaded config
+rc = RatioCounter(top, loaded_config)
 
 rc.pack()
 
